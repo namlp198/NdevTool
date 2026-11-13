@@ -1,0 +1,52 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #06090e;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #192434;
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #00ff9c55;
+  }
+}
+
+.drag-region {
+  -webkit-app-region: drag;
+}
+
+.no-drag {
+  -webkit-app-region: no-drag;
+}
+
+@keyframes mystic-pulse {
+  0%, 100% {
+    box-shadow: 0 0 12px rgba(0, 255, 156, 0.35), inset 0 0 8px rgba(183, 126, 255, 0.25);
+  }
+  50% {
+    box-shadow: 0 0 22px rgba(183, 126, 255, 0.65), inset 0 0 14px rgba(0, 255, 156, 0.4);
+  }
+}
+
+.mystic-glow {
+  animation: mystic-pulse 3s infinite ease-in-out;
+}
+
+.scanline {
+  background: linear-gradient(
+    to bottom,
+    rgba(255,255,255,0),
+    rgba(255,255,255,0) 50%,
+    rgba(0, 255, 156, 0.02) 50%,
+    rgba(0, 255, 156, 0.02)
+  );
+  background-size: 100% 4px;
+}

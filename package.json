@@ -1,0 +1,37 @@
+{
+  "name": "ndev-tool",
+  "version": "1.0.0",
+  "description": "Stealth Hacker/Mystic Multi-Engine AI Coding Wrapper (Claude Code / Codex / DeepSeek) with Repo Context & Google Drive Sync",
+  "main": "dist-electron/main.js",
+  "scripts": {
+    "dev": "vite",
+    "build:electron": "tsc -p tsconfig.electron.json",
+    "electron": "npm run build:electron && electron .",
+    "start": "npm run build && npm run build:electron && electron .",
+    "build": "vite build",
+    "deploy": "npm run build && npm run build:electron && node scripts/deploy-package.cjs && node scripts/build-installer.cjs",
+    "build:installer": "node scripts/build-installer.cjs",
+    "deploy:win": "powershell -NoProfile -ExecutionPolicy Bypass -File deploy/deploy-windows.ps1",
+    "deploy:linux": "bash deploy/deploy-linux.sh"
+  },
+  "dependencies": {
+    "lucide-react": "^0.469.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.20",
+    "concurrently": "^9.1.0",
+    "cross-env": "^7.0.3",
+    "electron": "^33.2.1",
+    "postcss": "^8.4.49",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.5",
+    "wait-on": "^8.0.1"
+  }
+}
