@@ -8,7 +8,7 @@
 
 - Machine: `win32-DESKTOP-LJ5ON20`
 - Branch: `main`
-- Updated: 2026-11-14T12:00:00.000Z
+- Updated: 2026-11-14T12:10:00.000Z
 
 ## Current Goal
 
@@ -19,6 +19,7 @@ Ngăn NdevTool tự ghi `handoff/latest.md` sau commit làm repo bị bẩn; th�
 - `saveRepo()` không còn tự ghi `handoff/latest.md` sau mỗi lượt chat (nguyên nhân repo bẩn sau commit).
 - `writeHandoffToRepoDisk` bỏ qua ghi khi nội dung không đổi.
 - Modal HANDOFF khi người dùng bấm lưu mới ghi `latest.md` (gọi `writeRepoHandoffDisk`).
+- `synthesizeHandoffSummary()` không còn tự ghi `latest.md` (đường ghi còn sót, làm VEIL bị bẩn sau mỗi lượt chat).
 - Trước đó: hộp thoại xác nhận gửi tin ở khung chính, model Claude 5.5, control box cửa sổ.
 
 ## Touched Files

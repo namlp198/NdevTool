@@ -1106,10 +1106,7 @@ function synthesizeHandoffSummary(repo: any): any {
     sourceMachineId: MACHINE_ID,
   };
 
-  if (repo.localPath && fs.existsSync(repo.localPath)) {
-    writeHandoffToRepoDisk(repo.localPath, summary, repo.branch);
-  }
-
+  // Pure: never write to the repo working tree here (callers run after every turn)
   return summary;
 }
 
