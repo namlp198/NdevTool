@@ -186,7 +186,7 @@ function loadSettings() {
     engine: {
       activeEngine: 'claude-code',
       claudeCliPath: getDefaultClaudePath(),
-      claudeModel: 'sonnet',
+      claudeModel: 'claude-sonnet-5-5',
       antigravityCliPath: getDefaultAntigravityPath(),
       antigravityModel: 'Gemini 4 Argon',
       effortLevel: 'medium',
@@ -209,6 +209,14 @@ function loadSettings() {
       if (['pro', 'flash', 'flash_lite'].includes(mergedEngine.antigravityModel)) {
         mergedEngine.antigravityModel =
           mergedEngine.antigravityModel === 'pro' ? 'Gemini 4 Argon' : 'Gemini 3.8 Flash';
+      }
+      // Migrate legacy Claude models
+      if (['sonnet', 'claude-sonnet-4-6'].includes(mergedEngine.claudeModel)) {
+        mergedEngine.claudeModel = 'claude-sonnet-5-5';
+      } else if (['opus', 'claude-opus-4-6'].includes(mergedEngine.claudeModel)) {
+        mergedEngine.claudeModel = 'claude-opus-5-5';
+      } else if (['haiku', 'claude-haiku-4-5'].includes(mergedEngine.claudeModel)) {
+        mergedEngine.claudeModel = 'claude-haiku-5-5';
       }
       const mergedSync = { ...defaults.sync, ...(saved.sync || {}) };
       // Migrate away from the old fake local cloud_sync_mirror folder so we only sync to real Google Drive
@@ -561,6 +569,10 @@ function writeHandoffToRepoDisk(repoLocalPath: string, handoff: any, branch = 'm
       '',
     ].join('\n');
 
+    // Skip no-op writes so an unchanged handoff never touches the working tree
+    if (fs.existsSync(targetFile) && fs.readFileSync(targetFile, 'utf-8') === content) {
+      return true;
+    }
     fs.writeFileSync(targetFile, content, 'utf-8');
     return true;
   } catch (err) {
@@ -929,11 +941,9 @@ function saveRepo(repo: any, syncFromTopLevel = true) {
     [MACHINE_ID]: repo.localPath,
   };
   fs.writeFileSync(getRepoFilePath(repo.id), JSON.stringify(repo, null, 2), 'utf-8');
-
-  // Auto 2-way sync: write to handoff/latest.md if repo.localPath exists on disk
-  if (repo.localPath && fs.existsSync(repo.localPath) && repo.handoff) {
-    writeHandoffToRepoDisk(repo.localPath, repo.handoff, repo.branch);
-  }
+  // NOTE: handoff/latest.md is intentionally NOT written here. Writing it after every turn
+  // dirties the user's git working tree right after they commit. It is only written on explicit
+  // request (write-repo-handoff-disk IPC), and only when the content actually changed.
 }
 
 function encryptPayload(plainJson: string, passphrase?: string): string {
@@ -1904,6 +1914,18 @@ function createMainWindow() {
     },
   });
 
+  mainWindow.on('maximize', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('window-maximized-state', true);
+    }
+  });
+
+  mainWindow.on('unmaximize', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('window-maximized-state', false);
+    }
+  });
+
   const devUrl = process.env.VITE_DEV_SERVER_URL;
   if (devUrl) {
     mainWindow.loadURL(devUrl);
@@ -2203,6 +2225,37 @@ ipcMain.handle('get-initial-state', () => {
 ipcMain.handle('set-widget-mode', (_event, mode: boolean) => {
   setWidgetMode(mode);
   return mode;
+});
+
+ipcMain.handle('window-minimize', () => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.minimize();
+  }
+  return true;
+});
+
+ipcMain.handle('window-toggle-maximize', () => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    if (mainWindow.isMaximized()) {
+      mainWindow.unmaximize();
+      return false;
+    } else {
+      mainWindow.maximize();
+      return true;
+    }
+  }
+  return false;
+});
+
+ipcMain.handle('window-close', () => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.close();
+  }
+  return true;
+});
+
+ipcMain.handle('window-is-maximized', () => {
+  return Boolean(mainWindow && !mainWindow.isDestroyed() && mainWindow.isMaximized());
 });
 
 ipcMain.handle('toggle-peek-window', (_event, forceState?: boolean) => {
@@ -3567,7 +3620,7 @@ ipcMain.handle(
     const selectedModel =
       payload.modelOverride ||
       (engineType === 'claude-code'
-        ? settings.engine?.claudeModel || 'sonnet'
+        ? settings.engine?.claudeModel || 'claude-sonnet-5-5'
         : engineType === 'antigravity'
         ? settings.engine?.antigravityModel || 'Gemini 4 Argon'
         : engineType === 'deepseek'

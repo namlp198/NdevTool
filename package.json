@@ -15,7 +15,8 @@
     "deploy:linux": "bash deploy/deploy-linux.sh"
   },
   "dependencies": {
-    "lucide-react": "^0.469.0"
+    "lucide-react": "^0.469.0",
+    "npm": "^12.2.2"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

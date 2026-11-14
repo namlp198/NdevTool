@@ -2,35 +2,31 @@
 
 ## Date
 
-2026-11-13
+2026-11-14
 
 ## Machine / branch
 
-- Machine: `win32-DESKTOP-I5PG2EK`
+- Machine: `win32-DESKTOP-LJ5ON20`
 - Branch: `main`
-- Target Remote: `https://github.com/namlp198/NdevTool.git`
-- Updated: 2026-11-13T11:25:30.000Z
+- Updated: 2026-11-14T12:00:00.000Z
 
 ## Current Goal
 
-Di chuyển toàn bộ repository NdevTool sang `D:\src\ai-workspace\06_Repositories\NdevTool`, khởi tạo Git, cấu hình remote GitHub và push toàn bộ mã nguồn.
+Ngăn NdevTool tự ghi `handoff/latest.md` sau commit làm repo bị bẩn; thử commit + push trên chính repo này.
 
 ## Latest change / Recent progress
 
-- Đã hoàn tất xây dựng tiêu chuẩn chung trong `docs/`, đồng bộ 2 chiều `handoff/latest.md` và 1-click Scaffold.
-- Đã tạo `.gitignore`, `.gitattributes`, `README.md`, `LICENSE`.
-- Sẵn sàng di chuyển thư mục sang `D:\src\ai-workspace\06_Repositories\NdevTool` và push lên GitHub.
+- `saveRepo()` không còn tự ghi `handoff/latest.md` sau mỗi lượt chat (nguyên nhân repo bẩn sau commit).
+- `writeHandoffToRepoDisk` bỏ qua ghi khi nội dung không đổi.
+- Modal HANDOFF khi người dùng bấm lưu mới ghi `latest.md` (gọi `writeRepoHandoffDisk`).
+- Trước đó: hộp thoại xác nhận gửi tin ở khung chính, model Claude 5.5, control box cửa sổ.
 
 ## Touched Files
 
-- `.gitignore`
-- `.gitattributes`
-- `README.md`
-- `LICENSE`
-- `docs/*`
-- `tasks/active.md`
+- `electron/main.ts`
+- `src/App.tsx`
 - `handoff/latest.md`
 
 ## Next
 
-Thực hiện sao chép/di chuyển sang `D:\src\ai-workspace\06_Repositories\NdevTool`, khởi tạo git, commit và push lên remote https://github.com/namlp198/NdevTool.git.
+Xác nhận sau commit/push, `git status` sạch và NdevTool không ghi lại `handoff/latest.md`.

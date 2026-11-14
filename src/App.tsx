@@ -8,6 +8,7 @@ import {
   ChevronRight,
   Cloud,
   Code2,
+  CornerDownLeft,
   Cpu,
   Edit3,
   Eye,
@@ -22,6 +23,7 @@ import {
   Lock,
   MessageSquare,
   Minimize2,
+  Minus,
   Paperclip,
   Play,
   Plus,
@@ -171,7 +173,7 @@ export const App: React.FC = () => {
     engine: {
       activeEngine: 'claude-code',
       claudeCliPath: 'claude',
-      claudeModel: 'sonnet',
+      claudeModel: 'claude-sonnet-5-5',
       antigravityCliPath: 'agentapi',
       antigravityModel: 'Gemini 4 Argon',
       effortLevel: 'medium',
@@ -198,6 +200,7 @@ export const App: React.FC = () => {
   const [isDragOverInput, setIsDragOverInput] = useState(false);
   const [isAltHeld, setIsAltHeld] = useState(false);
   const [peekWindowOpen, setPeekWindowOpen] = useState(false);
+  const [isMaximized, setIsMaximized] = useState(false);
 
   // Modals (Settings, WATCH_BUF click, and HANDOFF click are gated by Super Admin Login; hotkeys bypass login)
   const [showAdminLoginModal, setShowAdminLoginModal] = useState(false);
@@ -205,6 +208,7 @@ export const App: React.FC = () => {
     useState<ProtectedActionTarget | null>(null);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showHandoffModal, setShowHandoffModal] = useState(false);
+  const [showMainSendConfirmModal, setShowMainSendConfirmModal] = useState(false);
   const [previewImageAttachment, setPreviewImageAttachment] = useState<ChatAttachment | null>(
     null
   );
@@ -223,6 +227,7 @@ export const App: React.FC = () => {
 
   const chatEndRef = useRef<HTMLDivElement>(null);
   const hiddenTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const confirmSendBtnRef = useRef<HTMLButtonElement>(null);
   const cloudSyncRef = useRef<() => Promise<void>>(async () => {});
   const sendPromptRef = useRef<() => Promise<void>>(async () => {});
 
@@ -245,6 +250,26 @@ export const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    if (showMainSendConfirmModal) {
+      requestAnimationFrame(() => {
+        confirmSendBtnRef.current?.focus();
+      });
+    }
+  }, [showMainSendConfirmModal]);
+
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && showMainSendConfirmModal) {
+        e.preventDefault();
+        setShowMainSendConfirmModal(false);
+        hiddenTextareaRef.current?.focus();
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [showMainSendConfirmModal]);
+
+  useEffect(() => {
     if (isPeekRoute) return;
     if (window.ndevApi) {
       window.ndevApi.getInitialState().then((init: any) => {
@@ -260,6 +285,14 @@ export const App: React.FC = () => {
         }
         if (init.machineId) setMachineId(init.machineId);
         if (init.isWidgetMode !== undefined) setIsWidgetMode(init.isWidgetMode);
+      });
+
+      window.ndevApi.isWindowMaximized?.().then((max: boolean) => {
+        setIsMaximized(Boolean(max));
+      });
+
+      const unsubMaxState = window.ndevApi.onWindowMaximizedState?.((max: boolean) => {
+        setIsMaximized(Boolean(max));
       });
 
       const unsubStream = window.ndevApi.onStreamEvent((evt: any) => {
@@ -308,6 +341,7 @@ export const App: React.FC = () => {
       return () => {
         unsubStream?.();
         unsubWidget?.();
+        unsubMaxState?.();
         unsubPeek?.();
         unsubSettings?.();
         unsubHotkey?.();
@@ -567,7 +601,16 @@ export const App: React.FC = () => {
     setPendingAttachments((prev) => prev.filter((a) => a.id !== id));
   };
 
-  const handleSendPrompt = async () => {
+  const handleRequestSendPrompt = () => {
+    const trimmed = realInput.trim();
+    if ((!trimmed && pendingAttachments.length === 0) || !activeRepo || agentStatus !== 'idle') {
+      return;
+    }
+    setShowMainSendConfirmModal(true);
+  };
+
+  const executeSendPrompt = async () => {
+    setShowMainSendConfirmModal(false);
     const trimmed = realInput.trim();
     if ((!trimmed && pendingAttachments.length === 0) || !activeRepo || agentStatus !== 'idle') {
       return;
@@ -601,7 +644,7 @@ export const App: React.FC = () => {
     const activeEng = settings.engine.activeEngine;
     const currentModel =
       activeEng === 'claude-code'
-        ? settings.engine.claudeModel || 'sonnet'
+        ? settings.engine.claudeModel || 'claude-sonnet-5-5'
         : activeEng === 'antigravity'
         ? settings.engine.antigravityModel || 'Gemini 4 Argon'
         : activeEng === 'deepseek'
@@ -628,10 +671,11 @@ export const App: React.FC = () => {
       setStreamingText('');
       setLiveTools([]);
       setAgentStatus('idle');
+      hiddenTextareaRef.current?.focus();
     }
   };
 
-  sendPromptRef.current = handleSendPrompt;
+  sendPromptRef.current = executeSendPrompt;
 
   const handleUpdateSettings = async (patch: Partial<AppSettings>) => {
     const updated = { ...settings, ...patch };
@@ -742,6 +786,10 @@ export const App: React.FC = () => {
     };
     const updatedRepos = await window.ndevApi.saveRepoData(updatedRepo);
     if (updatedRepos) setRepos(updatedRepos);
+    // Explicit user save: the only place latest.md is written to the repo working tree
+    if (activeRepo.localPath) {
+      await window.ndevApi.writeRepoHandoffDisk?.(activeRepo.localPath, nextHandoff, activeRepo.branch);
+    }
     setShowHandoffModal(false);
   };
 
@@ -784,7 +832,7 @@ export const App: React.FC = () => {
   const activeEng = settings.engine.activeEngine;
   const activeModelDisplay =
     activeEng === 'claude-code'
-      ? settings.engine.claudeModel || 'sonnet'
+      ? settings.engine.claudeModel || 'claude-sonnet-5-5'
       : activeEng === 'antigravity'
       ? settings.engine.antigravityModel || 'Gemini 4 Argon'
       : activeEng === 'deepseek'
@@ -905,6 +953,41 @@ export const App: React.FC = () => {
             <Minimize2 className="w-3 h-3" />
             {t.cornerBtn}
           </button>
+
+          {/* OS Window Controls (Top-Right Control Box: Minimize, Maximize/Restore, Close) */}
+          <div className="flex items-center gap-1 no-drag ml-1 pl-2 border-l border-border/80">
+            <button
+              type="button"
+              onClick={() => window.ndevApi?.minimizeWindow?.()}
+              className="w-7 h-7 flex items-center justify-center rounded text-slate-400 hover:text-white hover:bg-[#142030] transition-colors"
+              title={t.winMinimize}
+            >
+              <Minus className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                const max = await window.ndevApi?.toggleMaximizeWindow?.();
+                setIsMaximized(Boolean(max));
+              }}
+              className="w-7 h-7 flex items-center justify-center rounded text-slate-400 hover:text-white hover:bg-[#142030] transition-colors"
+              title={isMaximized ? t.winRestore : t.winMaximize}
+            >
+              {isMaximized ? (
+                <Minimize2 className="w-3.5 h-3.5 text-cyber" />
+              ) : (
+                <Square className="w-3.5 h-3.5" />
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => window.ndevApi?.closeWindow?.()}
+              className="w-7 h-7 flex items-center justify-center rounded text-slate-400 hover:text-white hover:bg-red-600/90 transition-colors"
+              title={t.winClose}
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </header>
 
@@ -1588,7 +1671,7 @@ export const App: React.FC = () => {
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
-                    handleSendPrompt();
+                    handleRequestSendPrompt();
                   }
                 }}
                 placeholder=""
@@ -1646,7 +1729,7 @@ export const App: React.FC = () => {
               </div>
 
               <button
-                onClick={handleSendPrompt}
+                onClick={handleRequestSendPrompt}
                 disabled={
                   agentStatus !== 'idle' ||
                   (!realInput.trim() && pendingAttachments.length === 0)
@@ -1684,6 +1767,120 @@ export const App: React.FC = () => {
               alt={previewImageAttachment.name}
               className="max-h-[78vh] object-contain rounded"
             />
+          </div>
+        </div>
+      )}
+
+      {/* Main Chat Send Confirmation Modal */}
+      {showMainSendConfirmModal && (
+        <div
+          onClick={() => {
+            setShowMainSendConfirmModal(false);
+            hiddenTextareaRef.current?.focus();
+          }}
+          className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md bg-[#08101a] border border-amber/60 rounded-lg shadow-2xl p-4 space-y-3 font-mono text-xs"
+          >
+            <div className="flex items-center justify-between text-amber font-bold text-xs pb-1 border-b border-border">
+              <span className="flex items-center gap-1.5">
+                <CornerDownLeft className="w-3.5 h-3.5 text-amber" />
+                {t.mainConfirmSendTitle}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowMainSendConfirmModal(false);
+                  hiddenTextareaRef.current?.focus();
+                }}
+                className="text-slate-400 hover:text-white"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            <div className="text-[11px] text-slate-300">
+              {t.mainConfirmSendDesc}
+            </div>
+
+            {/* Target Engine & Model details */}
+            <div className="flex items-center justify-between p-2 rounded bg-[#0b131e] border border-border/80 text-[10px]">
+              <span className="text-slate-400">Target Engine:</span>
+              <span className="text-matrix font-bold">
+                {settings.engine.activeEngine.toUpperCase()} :: {activeModelDisplay}
+              </span>
+            </div>
+
+            {/* Message Preview (Decrypted or Masked according to user view) */}
+            <div className="space-y-1">
+              <div className="text-[10px] text-slate-400 font-semibold flex items-center justify-between">
+                <span>Nội dung gửi đi (Message Preview):</span>
+                <span className="text-[9px] text-slate-500">
+                  {realInput.length} ký tự
+                </span>
+              </div>
+              <div className="max-h-36 overflow-y-auto rounded bg-[#060a10] border border-border/80 p-2.5 text-[11px] whitespace-pre-wrap break-words text-cyber select-text">
+                {isAltHeld || showPlainTextInInput
+                  ? realInput || '(Chỉ gửi tệp đính kèm)'
+                  : (disguisedLivePreview || '(Chỉ gửi tệp đính kèm)')}
+              </div>
+            </div>
+
+            {/* Pending Attachments list */}
+            {pendingAttachments.length > 0 && (
+              <div className="space-y-1">
+                <span className="text-[10px] text-mystic font-semibold">
+                  Tệp đính kèm ({pendingAttachments.length}):
+                </span>
+                <div className="flex flex-wrap gap-1.5 max-h-20 overflow-y-auto">
+                  {pendingAttachments.map((att) => (
+                    <span
+                      key={att.id}
+                      className="px-2 py-0.5 rounded bg-mystic/15 border border-mystic/30 text-[10px] text-mystic font-mono truncate max-w-[200px]"
+                    >
+                      {att.name}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Action buttons */}
+            <div className="flex items-center justify-end gap-2 pt-1 border-t border-border/60">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowMainSendConfirmModal(false);
+                  hiddenTextareaRef.current?.focus();
+                }}
+                className="px-3 py-1 rounded bg-[#101a28] hover:bg-[#172538] border border-border text-slate-300 text-[11px]"
+              >
+                {t.mainConfirmCancelBtn}
+              </button>
+              <button
+                ref={confirmSendBtnRef}
+                type="button"
+                autoFocus
+                onClick={executeSendPrompt}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    executeSendPrompt();
+                  } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setShowMainSendConfirmModal(false);
+                    hiddenTextareaRef.current?.focus();
+                  }
+                }}
+                className="px-4 py-1 rounded bg-matrix text-black font-bold hover:opacity-90 text-[11px] flex items-center gap-1 shadow-[0_0_10px_rgba(0,255,156,0.2)]"
+              >
+                {t.mainConfirmSendBtn}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -2332,6 +2529,33 @@ const SettingsModal: React.FC<{
   const [recordingHotkeyField, setRecordingHotkeyField] = useState<keyof HotkeyConfig | null>(
     null
   );
+
+  const standardClaudeModels = [
+    'claude-sonnet-5-5',
+    'claude-opus-5-5',
+    'claude-fable-5-2',
+    'claude-haiku-5-5',
+    'sonnet',
+    'opus',
+    'haiku',
+  ];
+  const standardAgyModels = [
+    'Gemini 4 Argon',
+    'Gemini 3.8 Flash',
+    'Claude Opus 5.5',
+    'Claude Sonnet 5.5',
+    'Claude Fable 5.2',
+    'GPT-OSS 120B (Medium)',
+  ];
+
+  const [isCustomClaudeModel, setIsCustomClaudeModel] = useState<boolean>(() => {
+    const cur = settings.engine.claudeModel || 'claude-sonnet-5-5';
+    return !standardClaudeModels.includes(cur);
+  });
+  const [isCustomAgyModel, setIsCustomAgyModel] = useState<boolean>(() => {
+    const cur = settings.engine.antigravityModel || 'Gemini 4 Argon';
+    return !standardAgyModels.includes(cur);
+  });
   const [gdriveTesting, setGdriveTesting] = useState(false);
   const [gdriveTestResult, setGdriveTestResult] = useState<{
     ok?: boolean;
@@ -2700,64 +2924,141 @@ const SettingsModal: React.FC<{
                 <label className="block text-[10px] text-cyber font-bold mb-1">
                   {t.activeModelForEngineLabel}
                 </label>
-                <select
-                  value={
-                    activeEngineInDraft === 'claude-code'
-                      ? draft.engine.claudeModel || 'sonnet'
-                      : activeEngineInDraft === 'antigravity'
-                      ? draft.engine.antigravityModel || 'Gemini 4 Argon'
-                      : activeEngineInDraft === 'deepseek'
-                      ? draft.engine.deepseekModel || 'deepseek-chat'
-                      : draft.engine.codexModel || 'o3-mini'
-                  }
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setDraft({
-                      ...draft,
-                      engine: {
-                        ...draft.engine,
-                        ...(activeEngineInDraft === 'claude-code'
-                          ? { claudeModel: val }
-                          : activeEngineInDraft === 'antigravity'
-                          ? { antigravityModel: val }
-                          : activeEngineInDraft === 'deepseek'
-                          ? { deepseekModel: val }
-                          : { codexModel: val }),
-                      },
-                    });
-                  }}
-                  className="w-full bg-[#0b111a] border border-cyber/50 rounded px-2 py-1 text-cyber font-bold"
-                >
-                  {activeEngineInDraft === 'claude-code' && (
-                    <>
-                      <option value="sonnet">Claude Sonnet 4.6 (sonnet)</option>
-                      <option value="opus">Claude Opus 4.6 (opus)</option>
-                      <option value="haiku">Claude Haiku 4.5 (haiku)</option>
-                    </>
+                <div className="space-y-1.5">
+                  <select
+                    value={
+                      activeEngineInDraft === 'claude-code'
+                        ? isCustomClaudeModel
+                          ? '__custom'
+                          : draft.engine.claudeModel || 'claude-sonnet-5-5'
+                        : activeEngineInDraft === 'antigravity'
+                        ? isCustomAgyModel
+                          ? '__custom'
+                          : draft.engine.antigravityModel || 'Gemini 4 Argon'
+                        : activeEngineInDraft === 'deepseek'
+                        ? draft.engine.deepseekModel || 'deepseek-chat'
+                        : draft.engine.codexModel || 'o3-mini'
+                    }
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (activeEngineInDraft === 'claude-code') {
+                        if (val === '__custom') {
+                          setIsCustomClaudeModel(true);
+                        } else {
+                          setIsCustomClaudeModel(false);
+                          setDraft({
+                            ...draft,
+                            engine: {
+                              ...draft.engine,
+                              claudeModel: val,
+                            },
+                          });
+                        }
+                      } else if (activeEngineInDraft === 'antigravity') {
+                        if (val === '__custom') {
+                          setIsCustomAgyModel(true);
+                        } else {
+                          setIsCustomAgyModel(false);
+                          setDraft({
+                            ...draft,
+                            engine: {
+                              ...draft.engine,
+                              antigravityModel: val,
+                            },
+                          });
+                        }
+                      } else {
+                        setDraft({
+                          ...draft,
+                          engine: {
+                            ...draft.engine,
+                            ...(activeEngineInDraft === 'deepseek'
+                              ? { deepseekModel: val }
+                              : { codexModel: val }),
+                          },
+                        });
+                      }
+                    }}
+                    className="w-full bg-[#0b111a] border border-cyber/50 rounded px-2 py-1 text-cyber font-bold"
+                  >
+                    {activeEngineInDraft === 'claude-code' && (
+                      <>
+                        <option value="claude-sonnet-5-5">Claude Sonnet 5.5 (claude-sonnet-5-5)</option>
+                        <option value="claude-opus-5-5">Claude Opus 5.5 (claude-opus-5-5)</option>
+                        <option value="claude-fable-5-2">Claude Fable 5.2 (claude-fable-5-2)</option>
+                        <option value="claude-haiku-5-5">Claude Haiku 5.5 (claude-haiku-5-5)</option>
+                        <option value="sonnet">Claude Sonnet (legacy: sonnet)</option>
+                        <option value="opus">Claude Opus (legacy: opus)</option>
+                        <option value="haiku">Claude Haiku (legacy: haiku)</option>
+                        <option value="__custom">{t.modelCustomOption}</option>
+                      </>
+                    )}
+                    {activeEngineInDraft === 'antigravity' && (
+                      <>
+                        <option value="Gemini 4 Argon">Gemini 4 Argon</option>
+                        <option value="Gemini 3.8 Flash">Gemini 3.8 Flash</option>
+                        <option value="Claude Opus 5.5">Claude Opus 5.5 (AGY)</option>
+                        <option value="Claude Sonnet 5.5">Claude Sonnet 5.5 (AGY)</option>
+                        <option value="Claude Fable 5.2">Claude Fable 5.2 (AGY)</option>
+                        <option value="GPT-OSS 120B (Medium)">GPT-OSS 120B (Medium)</option>
+                        <option value="__custom">{t.modelCustomOption}</option>
+                      </>
+                    )}
+                    {activeEngineInDraft === 'deepseek' && (
+                      <>
+                        <option value="deepseek-chat">DeepSeek-V3 (deepseek-chat)</option>
+                        <option value="deepseek-reasoner">DeepSeek-R1 (deepseek-reasoner)</option>
+                      </>
+                    )}
+                    {activeEngineInDraft === 'codex' && (
+                      <>
+                        <option value="o3-mini">OpenAI o3-mini</option>
+                        <option value="o1">OpenAI o1</option>
+                        <option value="gpt-4o">OpenAI GPT-4o</option>
+                      </>
+                    )}
+                  </select>
+
+                  {activeEngineInDraft === 'claude-code' && isCustomClaudeModel && (
+                    <div className="pt-1">
+                      <input
+                        type="text"
+                        value={draft.engine.claudeModel || ''}
+                        onChange={(e) =>
+                          setDraft({
+                            ...draft,
+                            engine: {
+                              ...draft.engine,
+                              claudeModel: e.target.value,
+                            },
+                          })
+                        }
+                        placeholder={t.customModelPlaceholder}
+                        className="w-full bg-[#06090e] border border-matrix/50 rounded px-2.5 py-1 text-matrix font-mono text-xs focus:outline-none"
+                      />
+                    </div>
                   )}
-                  {activeEngineInDraft === 'antigravity' && (
-                    <>
-                      <option value="Gemini 4 Argon">Gemini 4 Argon</option>
-                      <option value="Gemini 3.8 Flash">Gemini 3.8 Flash</option>
-                      <option value="Claude Opus 5.5">Claude Opus 5.5 (AGY)</option>
-                      <option value="Claude Sonnet 5.5">Claude Sonnet 5.5 (AGY)</option>
-                      <option value="GPT-OSS 120B (Medium)">GPT-OSS 120B (Medium)</option>
-                    </>
+
+                  {activeEngineInDraft === 'antigravity' && isCustomAgyModel && (
+                    <div className="pt-1">
+                      <input
+                        type="text"
+                        value={draft.engine.antigravityModel || ''}
+                        onChange={(e) =>
+                          setDraft({
+                            ...draft,
+                            engine: {
+                              ...draft.engine,
+                              antigravityModel: e.target.value,
+                            },
+                          })
+                        }
+                        placeholder={t.customModelPlaceholder}
+                        className="w-full bg-[#06090e] border border-matrix/50 rounded px-2.5 py-1 text-matrix font-mono text-xs focus:outline-none"
+                      />
+                    </div>
                   )}
-                  {activeEngineInDraft === 'deepseek' && (
-                    <>
-                      <option value="deepseek-chat">DeepSeek-V3 (deepseek-chat)</option>
-                      <option value="deepseek-reasoner">DeepSeek-R1 (deepseek-reasoner)</option>
-                    </>
-                  )}
-                  {activeEngineInDraft === 'codex' && (
-                    <>
-                      <option value="o3-mini">OpenAI o3-mini</option>
-                      <option value="o1">OpenAI o1</option>
-                      <option value="gpt-4o">OpenAI GPT-4o</option>
-                    </>
-                  )}
-                </select>
+                </div>
               </div>
 
               <div>

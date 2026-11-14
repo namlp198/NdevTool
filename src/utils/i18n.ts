@@ -124,6 +124,10 @@ export const TRANSLATIONS: Record<
     peekConfirmSendDesc: string;
     peekConfirmSendBtn: string;
     peekConfirmCancelBtn: string;
+    mainConfirmSendTitle: string;
+    mainConfirmSendDesc: string;
+    mainConfirmSendBtn: string;
+    mainConfirmCancelBtn: string;
 
     // Handoff Modal
     handoffModalTitle: string;
@@ -184,6 +188,12 @@ export const TRANSLATIONS: Record<
     claudeCliPathLabel: string;
     defaultActiveEngineLabel: string;
     activeModelForEngineLabel: string;
+    modelCustomOption: string;
+    customModelPlaceholder: string;
+    winMinimize: string;
+    winMaximize: string;
+    winRestore: string;
+    winClose: string;
     claudeModelLabel: string;
     deepseekModelLabel: string;
     codexModelLabel: string;
@@ -429,6 +439,10 @@ export const TRANSLATIONS: Record<
     peekConfirmSendDesc: 'Bạn có chắc chắn muốn gửi nội dung tin nhắn này đi không?',
     peekConfirmSendBtn: '▶ Gửi ngay (Enter)',
     peekConfirmCancelBtn: 'Hủy / Sửa tiếp (ESC)',
+    mainConfirmSendTitle: 'XÁC NHẬN GỬI TIN NHẮN TỚI AI ENGINE',
+    mainConfirmSendDesc: 'Bạn có chắc chắn muốn gửi nội dung tin nhắn này tới AI Engine không?',
+    mainConfirmSendBtn: '▶ Gửi ngay (Enter)',
+    mainConfirmCancelBtn: 'Hủy / Sửa tiếp (ESC)',
 
     handoffModalTitle: 'BẢN TÓM TẮT BÀN GIAO ĐA MÁY (HANDOFF SUMMARY)',
     escCloseLabel: 'ĐÓNG [ESC]',
@@ -494,6 +508,12 @@ export const TRANSLATIONS: Record<
     claudeCliPathLabel: 'Đường dẫn Claude Code CLI (Windows / Linux)',
     defaultActiveEngineLabel: 'Chọn Code Engine đang sử dụng (Active Engine)',
     activeModelForEngineLabel: 'Chọn Model đang sử dụng (Active Model của Engine trên)',
+    modelCustomOption: 'Tùy chỉnh model ID... (Other model)',
+    customModelPlaceholder: 'Nhập mã model ID (vd: claude-sonnet-5-5, claude-opus-5-5)...',
+    winMinimize: 'Thu nhỏ cửa sổ (Minimize)',
+    winMaximize: 'Phóng to / Toàn màn hình (Maximize)',
+    winRestore: 'Khôi phục kích thước cửa sổ (Restore)',
+    winClose: 'Đóng ứng dụng (Close)',
     claudeModelLabel: 'Model Claude Code CLI',
     deepseekModelLabel: 'Model DeepSeek',
     codexModelLabel: 'Model OpenAI Codex',
@@ -751,6 +771,10 @@ export const TRANSLATIONS: Record<
     peekConfirmSendDesc: 'Are you sure you want to send this message right now?',
     peekConfirmSendBtn: '▶ Send Now (Enter)',
     peekConfirmCancelBtn: 'Cancel / Keep Editing (ESC)',
+    mainConfirmSendTitle: 'CONFIRM SENDING MESSAGE TO AI ENGINE',
+    mainConfirmSendDesc: 'Are you sure you want to dispatch this message to the AI Engine?',
+    mainConfirmSendBtn: '▶ Send Now (Enter)',
+    mainConfirmCancelBtn: 'Cancel / Keep Editing (ESC)',
 
     handoffModalTitle: 'CROSS-MACHINE HANDOFF SUMMARY',
     escCloseLabel: 'CLOSE [ESC]',
@@ -816,6 +840,12 @@ export const TRANSLATIONS: Record<
     claudeCliPathLabel: 'Claude Code CLI Path (Windows / Linux)',
     defaultActiveEngineLabel: 'Active Code Engine',
     activeModelForEngineLabel: 'Active Model (for Selected Engine)',
+    modelCustomOption: 'Other model (enter id)...',
+    customModelPlaceholder: 'Enter model ID (e.g. claude-sonnet-5-5, claude-opus-5-5)...',
+    winMinimize: 'Minimize',
+    winMaximize: 'Maximize / Fullscreen',
+    winRestore: 'Restore',
+    winClose: 'Close Application',
     claudeModelLabel: 'Claude Code CLI Model',
     deepseekModelLabel: 'DeepSeek Model',
     codexModelLabel: 'OpenAI Codex Model',

@@ -90,6 +90,15 @@ contextBridge.exposeInMainWorld('ndevApi', {
     ipcRenderer.invoke('write-repo-handoff-disk', folderPath, handoff, branch),
   openPathInExplorer: (targetPath: string) =>
     ipcRenderer.invoke('open-path-in-explorer', targetPath),
+  minimizeWindow: () => ipcRenderer.invoke('window-minimize'),
+  toggleMaximizeWindow: () => ipcRenderer.invoke('window-toggle-maximize'),
+  closeWindow: () => ipcRenderer.invoke('window-close'),
+  isWindowMaximized: () => ipcRenderer.invoke('window-is-maximized'),
+  onWindowMaximizedState: (cb: (isMax: boolean) => void) => {
+    const listener = (_e: any, isMax: boolean) => cb(isMax);
+    ipcRenderer.on('window-maximized-state', listener);
+    return () => ipcRenderer.removeListener('window-maximized-state', listener);
+  },
   onStreamEvent: (cb: (data: any) => void) => {
     const listener = (_e: any, data: any) => cb(data);
     ipcRenderer.on('engine-stream-event', listener);

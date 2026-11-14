@@ -1,16 +1,15 @@
 # Active Tasks
 
-## Task #106: Chuyển vị trí Repository sang D:\src\ai-workspace\06_Repositories và Push Remote GitHub
+## Task #108: Triển khai Hộp thoại xác nhận trước khi gửi ở khung soạn thảo chính
 
-- **Trạng thái:** In Progress
-- **Khởi động:** 2026-11-13
-- **Mục tiêu:** Di chuyển toàn bộ repo sang `D:\src\ai-workspace\06_Repositories\NdevTool`, khởi tạo Git, cấu hình `.gitignore`, commit và push lên `https://github.com/namlp198/NdevTool.git`.
+- **Trạng thái:** Completed
+- **Khởi động:** 2026-11-14
+- **Mục tiêu:** Đồng bộ tính năng xác nhận gửi tin nhắn giữa khung soạn thảo chính và cửa sổ phụ `WATCH_BUF`.
 
 ### Tiêu chí nghiệm thu (Acceptance Criteria):
-- [x] Tạo đầy đủ đặc tả chi tiết trong `docs/`.
-- [x] Backend `electron/main.ts` và Frontend `src/App.tsx` hoàn thiện 2-way sync và scaffold.
-- [x] Tạo `.gitignore`, `.gitattributes`, `README.md`, `LICENSE`.
-- [ ] Di chuyển toàn bộ repo sang `D:\src\ai-workspace\06_Repositories\NdevTool`.
-- [ ] Khởi tạo Git repository, commit toàn bộ mã nguồn.
-- [ ] Push thành công lên remote `https://github.com/namlp198/NdevTool.git`.
-
+- [x] Thêm định nghĩa và bản dịch i18n cho các nhãn xác nhận gửi trong `src/utils/i18n.ts`.
+- [x] Tạo `handleRequestSendPrompt()` và `executeSendPrompt()` trong `src/App.tsx`.
+- [x] Thêm modal xác nhận `showMainSendConfirmModal` hiển thị Target Engine & Model, nội dung xem trước và tệp đính kèm.
+- [x] Hỗ trợ phím tắt `Enter` để gửi ngay và `Escape` để hủy quay lại sửa tiếp.
+- [x] Tạo quyết định kiến trúc `decisions/0005_main_editor_send_confirmation_modal.md`.
+- [x] Biên dịch và đóng gói thành công 0 lỗi vào `resources/app` và `release/`.
