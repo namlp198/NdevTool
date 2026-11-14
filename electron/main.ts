@@ -2601,6 +2601,45 @@ ipcMain.handle(
   }
 );
 
+// Claude subscription plan limits (5-hour session, weekly, per-model weekly), same source as Claude's own
+// usage panel. The OAuth token is read here in the main process and never sent to the renderer.
+ipcMain.handle('get-plan-usage', async () => {
+  try {
+    const credFile = path.join(os.homedir(), '.claude', '.credentials.json');
+    const oauth = JSON.parse(fs.readFileSync(credFile, 'utf-8'))?.claudeAiOauth;
+    if (!oauth?.accessToken) return { ok: false, reason: 'no-token' };
+    const res = await fetch('https://api.anthropic.com/api/oauth/usage', {
+      headers: { Authorization: `Bearer ${oauth.accessToken}`, 'anthropic-beta': 'oauth-2025-04-20' },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!res.ok) return { ok: false, reason: `http-${res.status}` };
+    const d: any = await res.json();
+    const limits = (Array.isArray(d.limits) ? d.limits : []).map((l: any) => ({
+      kind: l.kind,
+      percent: Number(l.percent) || 0,
+      severity: l.severity || 'normal',
+      resetsAt: l.resets_at || null,
+      scopeModel: l.scope?.model?.display_name || null,
+    }));
+    const pick = (x: any) =>
+      x && typeof x.utilization === 'number'
+        ? { percent: x.utilization, resetsAt: x.resets_at || null }
+        : null;
+    return {
+      ok: true,
+      plan: oauth.subscriptionType || null,
+      limits,
+      // Flat fields kept for the renderer popup
+      fiveHour: pick(d.five_hour),
+      weekly: pick(d.seven_day),
+      weeklyOpus: pick(d.seven_day_opus),
+      weeklySonnet: pick(d.seven_day_sonnet),
+    };
+  } catch (err: any) {
+    return { ok: false, reason: String(err?.message || err) };
+  }
+});
+
 ipcMain.handle('read-repo-handoff-disk', (_event, folderPath: string) => {
   return readHandoffFromRepoDisk(folderPath);
 });
@@ -3757,6 +3796,7 @@ async function runClaudeCodeEngine(
     const toolActivities: any[] = [];
     let tokensIn = 0;
     let tokensOut = 0;
+    let contextTokens = 0;
     let costUsd = 0;
     let newSessionId = machineSessionId;
 
@@ -3841,6 +3881,13 @@ async function runClaudeCodeEngine(
               tokensIn = evt.usage?.input_tokens || tokensIn;
               tokensOut = evt.usage?.output_tokens || tokensOut;
               costUsd = evt.total_cost_usd || costUsd;
+              // Context fill = fresh input + cache reads/writes (input_tokens alone excludes cache)
+              if (evt.usage) {
+                contextTokens =
+                  (evt.usage.input_tokens || 0) +
+                  (evt.usage.cache_read_input_tokens || 0) +
+                  (evt.usage.cache_creation_input_tokens || 0);
+              }
             }
           } catch {
             accumulatedText += (accumulatedText ? '\n' : '') + line;
@@ -3892,6 +3939,7 @@ async function runClaudeCodeEngine(
           toolActivities,
           tokensIn,
           tokensOut,
+          contextTokens,
           costUsd,
         };
 
@@ -4012,6 +4060,7 @@ async function runAntigravityEngine(
     const toolActivities: any[] = [];
     let tokensIn = 0;
     let tokensOut = 0;
+    let contextTokens = 0;
     let costUsd = 0;
     const spawnStartMs = Date.now();
     let liveWatcherTimer: NodeJS.Timeout | null = null;

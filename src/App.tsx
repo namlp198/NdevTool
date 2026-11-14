@@ -86,11 +86,89 @@ const DEFAULT_HOTKEYS: HotkeyConfig = {
 
 type ProtectedActionTarget = 'settings' | 'watch-buf' | 'handoff' | 'sync';
 
+// Context window size per model id ('[1m]' suffix or Gemini = 1M-token variant)
+function getContextWindow(model?: string): number {
+  const m = (model || '').toLowerCase();
+  if (/gemini/i.test(m)) return 1_000_000;
+  if (/\[1m\]|1m/i.test(m)) return 1_000_000;
+  if (/deepseek/i.test(m)) return 128_000;
+  return 200_000;
+}
+
+// Circular context-usage gauge: green < 60%, amber < 85%, red above
+function UsageRing({
+  used,
+  limit,
+  revealed,
+  title,
+  label,
+  onClick,
+}: {
+  used: number;
+  limit: number;
+  revealed: boolean;
+  title: string;
+  label?: string;
+  onClick?: () => void;
+}) {
+  const ratio = limit > 0 ? Math.min(used / limit, 1) : 0;
+  const pct = Math.round(ratio * 100);
+  const color = ratio < 0.6 ? '#22c55e' : ratio < 0.85 ? '#f59e0b' : '#ef4444';
+  const r = 7;
+  const c = 2 * Math.PI * r;
+  return (
+    <span
+      className={`inline-flex items-center gap-1 ${onClick ? 'cursor-pointer' : ''}`}
+      title={title}
+      onClick={onClick}
+    >
+      <svg width="18" height="18" viewBox="0 0 18 18" className="-rotate-90">
+        <circle cx="9" cy="9" r={r} fill="none" stroke="#1e293b" strokeWidth="2.5" />
+        <circle
+          cx="9"
+          cy="9"
+          r={r}
+          fill="none"
+          stroke={color}
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeDasharray={c}
+          strokeDashoffset={c * (1 - ratio)}
+        />
+      </svg>
+      {revealed && (
+        <span className="font-semibold tabular-nums" style={{ color }}>
+          {label ? `${label} ` : ''}
+          {pct}%
+        </span>
+      )}
+    </span>
+  );
+}
+
 function formatBytes(bytes: number): string {
   if (!bytes || bytes <= 0) return '0B';
   if (bytes < 1024) return `${bytes}B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
   return `${(bytes / (1024 * 1024)).toFixed(2)}MB`;
+}
+
+function formatResetTime(isoStr?: string | null, isWeekly: boolean = false): string {
+  if (!isoStr) return '';
+  try {
+    const d = new Date(isoStr);
+    if (isNaN(d.getTime())) return '';
+    if (isWeekly) {
+      const day = d.toLocaleDateString('en-US', { weekday: 'short' });
+      const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+      return `Resets ${day} ${time}`;
+    } else {
+      const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+      return `Resets at ${time}`;
+    }
+  } catch {
+    return '';
+  }
 }
 
 interface ErrorBoundaryProps {
@@ -199,6 +277,9 @@ export const App: React.FC = () => {
   const [pendingAttachments, setPendingAttachments] = useState<ChatAttachment[]>([]);
   const [isDragOverInput, setIsDragOverInput] = useState(false);
   const [isAltHeld, setIsAltHeld] = useState(false);
+  const [planUsage, setPlanUsage] = useState<any>(null);
+  const [showPlanUsagePopup, setShowPlanUsagePopup] = useState(false);
+  const planUsagePopupRef = useRef<HTMLDivElement>(null);
   const [peekWindowOpen, setPeekWindowOpen] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
 
@@ -217,6 +298,46 @@ export const App: React.FC = () => {
 
   // Live Engine status & streaming states
   const [agentStatus, setAgentStatus] = useState<AgentStatus>('idle');
+
+  // Plan limits: refresh on mount, every 5 minutes, and after each finished turn
+  useEffect(() => {
+    if (agentStatus !== 'idle') return;
+    let cancelled = false;
+    const load = () =>
+      window.ndevApi?.getPlanUsage?.().then((u: any) => {
+        if (!cancelled) setPlanUsage(u?.ok ? u : null);
+      });
+    load();
+    const timer = setInterval(load, 5 * 60 * 1000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [agentStatus]);
+
+  // Click outside & Escape listener for Plan Usage Popover
+  useEffect(() => {
+    if (!showPlanUsagePopup) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        planUsagePopupRef.current &&
+        !planUsagePopupRef.current.contains(e.target as Node)
+      ) {
+        setShowPlanUsagePopup(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setShowPlanUsagePopup(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [showPlanUsagePopup]);
   const [statusDetail, setStatusDetail] = useState<string>('');
   const [streamingText, setStreamingText] = useState<string>('');
   const [liveTools, setLiveTools] = useState<ToolActivity[]>([]);
@@ -1556,6 +1677,283 @@ export const App: React.FC = () => {
                   </option>
                 </select>
 
+                {/* Dynamic Engine / Plan Usage Ring & Popover */}
+                {(() => {
+                  const activeEng = settings.engine.activeEngine; // 'claude-code' | 'antigravity' | 'codex' | 'deepseek'
+                  const activeModel =
+                    activeEng === 'claude-code'
+                      ? settings.engine.claudeModel || 'claude-sonnet-5-5'
+                      : activeEng === 'antigravity'
+                      ? settings.engine.antigravityModel || 'Gemini 3.8 Flash'
+                      : activeEng === 'deepseek'
+                      ? settings.engine.deepseekModel || 'deepseek-chat'
+                      : settings.engine.codexModel || 'o3-mini';
+
+                  const isGemini = activeEng === 'antigravity' || /gemini/i.test(activeModel);
+
+                  // Tìm tin nhắn assistant của ENGINE ĐANG CHỌN (tránh lấy nhầm token của engine khác)
+                  const lastAssistantOfEngine = [...(activeRepo?.messages || [])]
+                    .reverse()
+                    .find((m) => {
+                      if (m.role !== 'assistant') return false;
+                      if (isGemini) {
+                        return m.engine === 'antigravity' || /gemini/i.test(m.modelUsed || '');
+                      }
+                      if (activeEng === 'claude-code') {
+                        return m.engine === 'claude-code' || /claude/i.test(m.modelUsed || '');
+                      }
+                      return m.engine === activeEng;
+                    });
+
+                  // Số token đã dùng của engine hiện tại
+                  const usedTokens =
+                    lastAssistantOfEngine?.contextTokens ||
+                    lastAssistantOfEngine?.tokensIn ||
+                    0;
+
+                  // Giới hạn context window chuẩn theo từng engine/model
+                  const contextLimit = getContextWindow(activeModel);
+
+                  // Với Claude Code: vòng tròn thể hiện % của 5-hour limit (Claude Subscription Usage)
+                  // Với Gemini / Antigravity: vòng tròn thể hiện context window usage của phiên (trên tổng 1,000,000 tokens)
+                  const fiveHourPct =
+                    planUsage?.fiveHour?.percent != null ? Number(planUsage.fiveHour.percent) : 0;
+                  const weeklyPct =
+                    planUsage?.weekly?.percent != null ? Number(planUsage.weekly.percent) : 0;
+
+                  let displayPercent = 0;
+                  let ringRatio = 0;
+
+                  if (isGemini) {
+                    ringRatio = contextLimit > 0 ? Math.min(usedTokens / contextLimit, 1) : 0;
+                    displayPercent = Math.round(ringRatio * 100);
+                  } else if (activeEng === 'claude-code') {
+                    displayPercent = Math.round(fiveHourPct);
+                    ringRatio = Math.min(Math.max(fiveHourPct / 100, 0), 1);
+                  } else {
+                    ringRatio = contextLimit > 0 ? Math.min(usedTokens / contextLimit, 1) : 0;
+                    displayPercent = Math.round(ringRatio * 100);
+                  }
+
+                  const ringColor =
+                    ringRatio < 0.6 ? '#3b82f6' : ringRatio < 0.85 ? '#f59e0b' : '#ef4444';
+                  const r = 7;
+                  const c = 2 * Math.PI * r;
+
+                  const ringTitle = isAltHeld
+                    ? isGemini
+                      ? `Google Gemini [${activeModel}]: ${usedTokens.toLocaleString()} / ${(contextLimit / 1_000_000).toFixed(0)}M tokens (${displayPercent}%)`
+                      : activeEng === 'claude-code'
+                      ? `Claude Plan limits: 5h (${displayPercent}%) · Weekly (${Math.round(weeklyPct)}%)`
+                      : `${activeModel}: ${usedTokens.toLocaleString()} / ${contextLimit.toLocaleString()} tokens (${displayPercent}%)`
+                    : isGemini
+                    ? 'RING0_QUOTA_WATCH :: GEMINI_MMU'
+                    : 'RING0_QUOTA_WATCH :: MMU_LIMITS';
+
+                  return (
+                    <span className="relative inline-flex items-center gap-1.5" ref={planUsagePopupRef}>
+                      {/* Plan / Engine Usage Popover Modal */}
+                      {showPlanUsagePopup && (
+                        <div
+                          className="absolute bottom-full left-0 mb-2 w-[300px] sm:w-[330px] bg-[#1a1d23] border border-[#323946] rounded-xl shadow-2xl p-4 text-xs select-none z-50 animate-in fade-in zoom-in-95 duration-150"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {/* Header */}
+                          <div className="flex items-center justify-between pb-2.5 mb-3 border-b border-[#282d38]">
+                            <span className="text-slate-200 font-medium text-[13px]">
+                              {isAltHeld
+                                ? isGemini
+                                  ? 'Google Gemini · Antigravity'
+                                  : `Plan usage limits${planUsage?.plan ? ` · ${planUsage.plan.charAt(0).toUpperCase()}${planUsage.plan.slice(1)}` : ' · Pro'}`
+                                : isGemini
+                                ? 'RING0_QUOTA_WATCH :: GEMINI_MMU'
+                                : 'RING0_QUOTA_WATCH :: MMU_LIMITS'}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (activeEng === 'claude-code') {
+                                  window.ndevApi?.getPlanUsage?.().then((u: any) => {
+                                    if (u?.ok) setPlanUsage(u);
+                                  });
+                                }
+                              }}
+                              className="text-slate-400 hover:text-white transition-colors text-xs flex items-center gap-1 font-medium cursor-pointer"
+                              title={isAltHeld ? (isGemini ? activeModel : 'Refresh usage') : 'SYNC_MMU'}
+                            >
+                              {isAltHeld
+                                ? isGemini
+                                  ? `${activeModel}`
+                                  : 'See all →'
+                                : '0x7F_SYNC →'}
+                            </button>
+                          </div>
+
+                          {/* GEMINI POPUP CONTENT */}
+                          {isGemini ? (
+                            <>
+                              {/* 1. Context Window */}
+                              <div className="space-y-1.5 mb-3.5">
+                                <div className="flex items-center justify-between text-xs">
+                                  <span className="text-slate-100 font-medium">
+                                    {isAltHeld ? 'Context window' : 'CONTEXT_MMU_MAP'}
+                                  </span>
+                                  <span className="text-slate-400 font-normal tabular-nums">
+                                    {isAltHeld
+                                      ? `${usedTokens.toLocaleString()} / ${(contextLimit / 1_000_000).toFixed(0)}M (${displayPercent}%)`
+                                      : `PAGES @ 0x${hashToHex(String(usedTokens), 4)}  ${displayPercent}%`}
+                                  </span>
+                                </div>
+                                <div className="h-1.5 w-full bg-[#2d333f] rounded-full overflow-hidden">
+                                  <div
+                                    className="h-full bg-[#3b82f6] rounded-full transition-all duration-300"
+                                    style={{
+                                      width: `${Math.min(Math.max(displayPercent, usedTokens > 0 ? 1 : 0), 100)}%`,
+                                    }}
+                                  />
+                                </div>
+                              </div>
+
+                              {/* 2. Daemon & Rate Limit Status */}
+                              <div className="space-y-1.5 mb-3.5">
+                                <div className="flex items-center justify-between text-xs">
+                                  <span className="text-slate-100 font-medium">
+                                    {isAltHeld ? 'Antigravity CLI Daemon' : 'BURST_IO_LIMIT'}
+                                  </span>
+                                  <span className="text-slate-400 font-normal tabular-nums">
+                                    {isAltHeld ? 'Connected · Ready' : 'STATUS @ 0x00_OK'}
+                                  </span>
+                                </div>
+                                <div className="h-1.5 w-full bg-[#2d333f] rounded-full overflow-hidden">
+                                  <div
+                                    className="h-full bg-emerald-500 rounded-full transition-all duration-300"
+                                    style={{ width: '100%' }}
+                                  />
+                                </div>
+                              </div>
+
+                              {/* 3. Model Active Details */}
+                              <div className="pt-2 border-t border-[#282d38] flex items-center justify-between text-[11px] text-slate-400">
+                                <span>{isAltHeld ? 'Active Model:' : 'SYS_MODEL:'}</span>
+                                <span className="text-slate-200 font-mono font-medium">
+                                  {isAltHeld ? activeModel : `0x${hashToHex(activeModel, 6)}`}
+                                </span>
+                              </div>
+                            </>
+                          ) : (
+                            /* CLAUDE POPUP CONTENT */
+                            <>
+                              {/* 5-hour limit */}
+                              <div className="space-y-1.5 mb-3.5">
+                                <div className="flex items-center justify-between text-xs">
+                                  <span className="text-slate-100 font-medium">
+                                    {isAltHeld ? '5-hour limit' : 'IRQ_WINDOW_5H'}
+                                  </span>
+                                  <span className="text-slate-400 font-normal tabular-nums">
+                                    {isAltHeld
+                                      ? `${formatResetTime(planUsage?.fiveHour?.resetsAt, false)}  ${Math.round(fiveHourPct)}%`
+                                      : `RESET_VEC @ 0x${hashToHex(planUsage?.fiveHour?.resetsAt || '5h', 4)}  ${Math.round(fiveHourPct)}%`}
+                                  </span>
+                                </div>
+                                <div className="h-1.5 w-full bg-[#2d333f] rounded-full overflow-hidden">
+                                  <div
+                                    className="h-full bg-[#3b82f6] rounded-full transition-all duration-300"
+                                    style={{
+                                      width: `${Math.min(Math.max(fiveHourPct, 0), 100)}%`,
+                                    }}
+                                  />
+                                </div>
+                              </div>
+
+                              {/* Weekly limit */}
+                              <div className="space-y-1.5">
+                                <div className="flex items-center justify-between text-xs">
+                                  <span className="text-slate-100 font-medium">
+                                    {isAltHeld ? 'Weekly · all models' : 'BURST_CYCLE_7D'}
+                                  </span>
+                                  <span className="text-slate-400 font-normal tabular-nums">
+                                    {isAltHeld
+                                      ? `${formatResetTime(planUsage?.weekly?.resetsAt, true)}  ${Math.round(weeklyPct)}%`
+                                      : `EPOCH_TICK @ 0x${hashToHex(planUsage?.weekly?.resetsAt || '7d', 4)}  ${Math.round(weeklyPct)}%`}
+                                  </span>
+                                </div>
+                                <div className="h-1.5 w-full bg-[#2d333f] rounded-full overflow-hidden">
+                                  <div
+                                    className="h-full bg-[#3b82f6] rounded-full transition-all duration-300"
+                                    style={{
+                                      width: `${Math.min(Math.max(weeklyPct, 0), 100)}%`,
+                                    }}
+                                  />
+                                </div>
+                              </div>
+
+                              {/* Per-model weekly limits */}
+                              {(planUsage?.limits || [])
+                                .filter((l: any) => l.kind === 'weekly_scoped')
+                                .map((l: any, i: number) => (
+                                  <div key={`scoped-${i}`} className="space-y-1.5 mt-3.5">
+                                    <div className="flex items-center justify-between text-xs">
+                                      <span className="text-slate-100 font-medium">
+                                        {isAltHeld ? `Weekly · ${l.scopeModel || 'model'}` : `BURST_CYCLE_7D_${i}`}
+                                      </span>
+                                      <span className="text-slate-400 font-normal tabular-nums">
+                                        {Math.round(l.percent)}%
+                                      </span>
+                                    </div>
+                                    <div className="h-1.5 w-full bg-[#2d333f] rounded-full overflow-hidden">
+                                      <div
+                                        className="h-full bg-[#3b82f6] rounded-full"
+                                        style={{ width: `${Math.min(Math.max(l.percent, 0), 100)}%` }}
+                                      />
+                                    </div>
+                                  </div>
+                                ))}
+
+                              {/* Model Context Tokens In-Use */}
+                              <div className="pt-2.5 mt-3 border-t border-[#282d38] flex items-center justify-between text-[11px] text-slate-400">
+                                <span>{isAltHeld ? `Session Context (${activeModel}):` : 'RING0_CTX:'}</span>
+                                <span className="text-slate-200 font-mono font-medium">
+                                  {isAltHeld
+                                    ? `${usedTokens.toLocaleString()} / ${contextLimit.toLocaleString()} tokens`
+                                    : `0x${hashToHex(String(usedTokens), 4)}`}
+                                </span>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Usage Ring Button */}
+                      <span
+                        className="inline-flex items-center gap-1 cursor-pointer hover:opacity-85 transition-opacity"
+                        title={ringTitle}
+                        onClick={() => setShowPlanUsagePopup((prev) => !prev)}
+                      >
+                        <svg width="18" height="18" viewBox="0 0 18 18" className="-rotate-90">
+                          <circle cx="9" cy="9" r={r} fill="none" stroke="#1e293b" strokeWidth="2.5" />
+                          <circle
+                            cx="9"
+                            cy="9"
+                            r={r}
+                            fill="none"
+                            stroke={ringColor}
+                            strokeWidth="2.5"
+                            strokeLinecap="round"
+                            strokeDasharray={c}
+                            strokeDashoffset={c * (1 - ringRatio)}
+                            className="transition-all duration-300"
+                          />
+                        </svg>
+                        {isAltHeld && (
+                          <span className="font-semibold tabular-nums text-[10px]" style={{ color: ringColor }}>
+                            {displayPercent}%
+                          </span>
+                        )}
+                      </span>
+                    </span>
+                  );
+                })()}
+
                 {/* Headless Auto-Permission Toggle (Disguised until Alt is held) */}
                 <button
                   onClick={() =>
@@ -1594,20 +1992,6 @@ export const App: React.FC = () => {
                 </button>
               </div>
 
-              <div className="flex items-center gap-2 text-slate-400 ml-auto">
-                <span className="text-slate-500 hidden lg:inline">
-                  {isAltHeld ? (
-                    <span className="text-amber font-semibold">
-                      {t.altHeldNotice.replace(/\bALT\b/g, configuredHoldKeyDisplay)}
-                    </span>
-                  ) : (
-                    t.inputHint.replace(/\bALT\b/g, configuredHoldKeyDisplay)
-                  )}
-                </span>
-                <span className="whitespace-nowrap">
-                  {t.bufLenLabel}: {realInput.length}B
-                </span>
-              </div>
             </div>
 
             {/* Pending Pasted / Attached Images & Files Bar */}

@@ -1,15 +1,16 @@
 # Active Tasks
 
-## Task #108: Triển khai Hộp thoại xác nhận trước khi gửi ở khung soạn thảo chính
+## Task #110: Khắc phục Vòng tròn Usage Hạn Mức & Phân Tách Động Claude Code vs Gemini Antigravity
 
 - **Trạng thái:** Completed
 - **Khởi động:** 2026-11-14
-- **Mục tiêu:** Đồng bộ tính năng xác nhận gửi tin nhắn giữa khung soạn thảo chính và cửa sổ phụ `WATCH_BUF`.
+- **Mục tiêu:** Sửa lỗi vòng tròn luôn báo 100% do nhầm lẫn giữa cache context token và plan usage; cập nhật động theo Engine/Model hiện tại (Claude vs Gemini) và hiển thị đúng bảng popup tương ứng.
 
 ### Tiêu chí nghiệm thu (Acceptance Criteria):
-- [x] Thêm định nghĩa và bản dịch i18n cho các nhãn xác nhận gửi trong `src/utils/i18n.ts`.
-- [x] Tạo `handleRequestSendPrompt()` và `executeSendPrompt()` trong `src/App.tsx`.
-- [x] Thêm modal xác nhận `showMainSendConfirmModal` hiển thị Target Engine & Model, nội dung xem trước và tệp đính kèm.
-- [x] Hỗ trợ phím tắt `Enter` để gửi ngay và `Escape` để hủy quay lại sửa tiếp.
-- [x] Tạo quyết định kiến trúc `decisions/0005_main_editor_send_confirmation_modal.md`.
-- [x] Biên dịch và đóng gói thành công 0 lỗi vào `resources/app` và `release/`.
+- [x] Sửa `getContextWindow(model)`: Gemini có context limit là 1,000,000 tokens (thay vì 200k).
+- [x] Lọc tin nhắn assistant theo đúng `activeEngine` đang hoạt động (tránh lấy nhầm 818k token cũ của Claude khi đang dùng Gemini).
+- [x] Đưa vòng tròn Claude về đo đúng % của hạn mức phiên 5 giờ (`fiveHour.percent`, thực tế là 4%, màu xanh `#3b82f6`, hoàn toàn hết lỗi 100%).
+- [x] Xây dựng giao diện Popup cho Google Gemini Antigravity (Context Window 1M, Daemon Ready Status, Active Model) khi engine là Gemini.
+- [x] Tuân thủ cơ chế Real/Mask ngụy trang khi nhấn Alt cho cả 2 engine.
+- [x] Quyết định kiến trúc `decisions/0007_dynamic_engine_usage_ring_and_gemini_popup.md` và `0000_INDEX.md`.
+- [x] Biên dịch Vite & Electron thành công 0 lỗi, đồng bộ vào `resources/app` và `release/`.

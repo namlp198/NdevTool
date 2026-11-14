@@ -84,6 +84,7 @@ contextBridge.exposeInMainWorld('ndevApi', {
     ipcRenderer.invoke('check-standard-structure', folderPath),
   scaffoldStandardStructure: (folderPath: string, repoName: string, branch?: string) =>
     ipcRenderer.invoke('scaffold-standard-structure', folderPath, repoName, branch),
+  getPlanUsage: () => ipcRenderer.invoke('get-plan-usage'),
   readRepoHandoffDisk: (folderPath: string) =>
     ipcRenderer.invoke('read-repo-handoff-disk', folderPath),
   writeRepoHandoffDisk: (folderPath: string, handoff: any, branch?: string) =>

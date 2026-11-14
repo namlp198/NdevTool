@@ -50,6 +50,7 @@ export interface ChatMessage {
   toolActivities?: ToolActivity[];
   tokensIn?: number;
   tokensOut?: number;
+  contextTokens?: number;
   costUsd?: number;
 }
 
