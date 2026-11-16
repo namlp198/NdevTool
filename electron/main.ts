@@ -3783,9 +3783,10 @@ async function runClaudeCodeEngine(
     args.push('--append-system-prompt', handoffSystemPrompt);
   }
 
-  // Use '--print' and '--' before prompt so any prompt starting with '-' (e.g. Markdown bullet points or dashes)
-  // is treated as a positional prompt argument and NOT misparsed as a command-line option flag!
-  args.push('--print', '--', prompt);
+  // The prompt is written to stdin (not argv): attached file contents can exceed the Windows
+  // command-line limit (~8K via cmd.exe) and multi-line text breaks under shell quoting.
+  // stdin also avoids prompts starting with '-' being parsed as CLI flags.
+  args.push('--print');
 
   emitStreamEvent({
     type: 'status',
@@ -3813,9 +3814,11 @@ async function runClaudeCodeEngine(
         cwd,
         env: claudeEnv,
         shell: process.platform === 'win32' && !claudeBin.endsWith('.exe'),
-        stdio: ['ignore', 'pipe', 'pipe'],
+        stdio: ['pipe', 'pipe', 'pipe'],
       });
       activeChildProcess = child;
+      child.stdin!.on('error', () => {});
+      child.stdin!.end(prompt, 'utf-8');
 
       let lineBuffer = '';
       child.stdout.on('data', (chunk: Buffer) => {
