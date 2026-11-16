@@ -3767,7 +3767,7 @@ async function runClaudeCodeEngine(
   const useNativeSameMachineResume =
     strategy === 'smart-handoff' && Boolean(machineSessionId) && !switchedMachine;
 
-  const args: string[] = ['-p', prompt, '--output-format', 'stream-json', '--verbose'];
+  const args: string[] = ['--output-format', 'stream-json', '--verbose'];
   if (model) {
     args.push('--model', model);
   }
@@ -3782,6 +3782,10 @@ async function runClaudeCodeEngine(
   } else if (handoffSystemPrompt) {
     args.push('--append-system-prompt', handoffSystemPrompt);
   }
+
+  // Use '--print' and '--' before prompt so any prompt starting with '-' (e.g. Markdown bullet points or dashes)
+  // is treated as a positional prompt argument and NOT misparsed as a command-line option flag!
+  args.push('--print', '--', prompt);
 
   emitStreamEvent({
     type: 'status',
@@ -3809,6 +3813,7 @@ async function runClaudeCodeEngine(
         cwd,
         env: claudeEnv,
         shell: process.platform === 'win32' && !claudeBin.endsWith('.exe'),
+        stdio: ['ignore', 'pipe', 'pipe'],
       });
       activeChildProcess = child;
 
@@ -4037,7 +4042,7 @@ async function runAntigravityEngine(
     }
   } else {
     // Standard `agy` (jetski) CLI invocation with stream-json for real-time tool & thinking feedback!
-    args.push('-p', fullPromptWithHandoff, '--output-format', 'stream-json');
+    args.push('--output-format', 'stream-json');
     if (skipPermissions) {
       args.push('--dangerously-skip-permissions');
     }
@@ -4045,6 +4050,7 @@ async function runAntigravityEngine(
       args.push('--conversation', machineAgyConvId);
     }
     args.push('--model', resolvedAgyModel);
+    args.push(`--print=${fullPromptWithHandoff}`);
   }
 
   emitStreamEvent({
@@ -4304,6 +4310,7 @@ async function runAntigravityEngine(
         cwd,
         env: agyEnv,
         shell: process.platform === 'win32' && !agyBin.endsWith('.exe'),
+        stdio: ['ignore', 'pipe', 'pipe'],
       });
       activeChildProcess = child;
       liveWatcherTimer = setInterval(pollAgyLiveTranscript, 600);

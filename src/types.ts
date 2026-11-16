@@ -25,6 +25,12 @@ export interface ToolActivity {
   timestamp: string;
 }
 
+export interface ThoughtEntry {
+  id: string;
+  text: string;
+  timestamp: string;
+}
+
 export interface ChatAttachment {
   id: string;
   name: string;
@@ -48,6 +54,7 @@ export interface ChatMessage {
   timestamp: string;
   machineId: string;
   toolActivities?: ToolActivity[];
+  thoughts?: ThoughtEntry[];
   tokensIn?: number;
   tokensOut?: number;
   contextTokens?: number;

@@ -56,6 +56,7 @@ import {
   StandardStructureStatus,
   StealthThemeMode,
   ToolActivity,
+  ThoughtEntry,
 } from './types';
 import {
   encodeToDisguisedCode,
@@ -73,6 +74,7 @@ import {
 } from './utils/i18n';
 import { FloatingCornerWidget } from './components/FloatingCornerWidget';
 import { PeekInspectorWindow } from './components/PeekInspectorWindow';
+import { StructuredMessage, ThoughtsList } from './components/RichMessage';
 
 const DEFAULT_HOTKEYS: HotkeyConfig = {
   holdPeekKey: 'Alt',
@@ -341,6 +343,7 @@ export const App: React.FC = () => {
   const [statusDetail, setStatusDetail] = useState<string>('');
   const [streamingText, setStreamingText] = useState<string>('');
   const [liveTools, setLiveTools] = useState<ToolActivity[]>([]);
+  const [liveThoughts, setLiveThoughts] = useState<ThoughtEntry[]>([]);
   const [syncBadgeState, setSyncBadgeState] = useState<{
     type: 'idle' | 'syncing' | 'ok' | 'unconfigured' | 'error';
     count?: number;
@@ -420,10 +423,11 @@ export const App: React.FC = () => {
         if (evt.type === 'status') {
           setAgentStatus(evt.status);
           if (evt.detail) setStatusDetail(evt.detail);
-          if (evt.toolActivities) setLiveTools(evt.toolActivities);
+          if (evt.toolActivities) setLiveTools([...evt.toolActivities]);
+          if (evt.thoughts) setLiveThoughts([...evt.thoughts]);
         } else if (evt.type === 'chunk') {
           setStreamingText(evt.text || '');
-          if (evt.toolActivities) setLiveTools(evt.toolActivities);
+          if (evt.toolActivities) setLiveTools([...evt.toolActivities]);
         }
       });
 
@@ -760,6 +764,7 @@ export const App: React.FC = () => {
     });
     setStreamingText('');
     setLiveTools([]);
+    setLiveThoughts([]);
     setAgentStatus('thinking');
 
     const activeEng = settings.engine.activeEngine;
@@ -791,6 +796,7 @@ export const App: React.FC = () => {
       }
       setStreamingText('');
       setLiveTools([]);
+      setLiveThoughts([]);
       setAgentStatus('idle');
       hiddenTextareaRef.current?.focus();
     }
@@ -1570,6 +1576,23 @@ export const App: React.FC = () => {
                     <Square className="w-2.5 h-2.5" /> {t.sigintBtn}
                   </button>
                 </div>
+
+                {liveThoughts.length > 0 && (
+                  <div className="border-l-2 border-mystic/50 pl-2 py-0.5 space-y-1 max-h-40 overflow-y-auto">
+                    <div className="text-[10px] font-semibold text-mystic">
+                      {isAltHeld
+                        ? `${lang === 'vi' ? 'Đang suy nghĩ' : 'Thinking'} (${liveThoughts.length})`
+                        : `IRQ_TRACE_BUF (0x${liveThoughts.length.toString(16)})`}
+                    </div>
+                    {isAltHeld ? (
+                      <ThoughtsList thoughts={liveThoughts.slice(-3)} compact />
+                    ) : (
+                      <div className="text-[10px] text-slate-500">
+                        0x{hashToHex(liveThoughts[liveThoughts.length - 1].text, 12)}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {liveTools.length > 0 && (
                   <div className="space-y-1 border-l-2 border-cyber/40 pl-2 py-0.5">
@@ -2453,13 +2476,23 @@ const DisguisedMessageItem: React.FC<{
             {isRevealed ? (
               <>
                 <div className="text-slate-500">{t.decodedRealMsgHeader}</div>
-                <pre
-                  className={`whitespace-pre-wrap leading-relaxed pl-2 ${
-                    msg.role === 'user' ? 'text-cyber/90' : 'text-amber'
-                  }`}
-                >
-                  {displayRealContent}
-                </pre>
+                {msg.role === 'assistant' ? (
+                  <div className="pl-2">
+                    <StructuredMessage
+                      content={displayRealContent}
+                      thoughts={msg.thoughts}
+                      tools={msg.toolActivities}
+                      labels={{
+                        thinking: lang === 'vi' ? 'Suy nghĩ' : 'Thinking',
+                        tools: lang === 'vi' ? 'Thao tác công cụ' : 'Tool activity',
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <pre className="whitespace-pre-wrap leading-relaxed pl-2 text-cyber/90">
+                    {displayRealContent}
+                  </pre>
+                )}
                 <div className="text-slate-500"> */</div>
               </>
             ) : (
@@ -2524,7 +2557,7 @@ const DisguisedMessageItem: React.FC<{
         </div>
       </div>
 
-      {msg.toolActivities && msg.toolActivities.length > 0 && (
+      {!(isRevealed && msg.role === 'assistant') && msg.toolActivities && msg.toolActivities.length > 0 && (
         <div className="text-[10px] text-mystic/90 bg-[#06090e] p-1.5 rounded border border-mystic/20 space-y-0.5">
           {msg.toolActivities.map((tItem) => (
             <div key={tItem.id}>
@@ -2537,13 +2570,25 @@ const DisguisedMessageItem: React.FC<{
 
       {renderAttachmentsBlock()}
 
-      <pre
-        className={`text-[11px] whitespace-pre-wrap font-mono leading-relaxed ${
-          isRevealed ? 'text-amber' : 'text-matrix/90'
-        }`}
-      >
-        {isRevealed ? displayRealContent : fallbackDisguisedCode}
-      </pre>
+      {isRevealed && msg.role === 'assistant' ? (
+        <StructuredMessage
+          content={displayRealContent}
+          thoughts={msg.thoughts}
+          tools={msg.toolActivities}
+          labels={{
+            thinking: lang === 'vi' ? 'Suy nghĩ' : 'Thinking',
+            tools: lang === 'vi' ? 'Thao tác công cụ' : 'Tool activity',
+          }}
+        />
+      ) : (
+        <pre
+          className={`text-[11px] whitespace-pre-wrap font-mono leading-relaxed ${
+            isRevealed ? 'text-amber' : 'text-matrix/90'
+          }`}
+        >
+          {isRevealed ? displayRealContent : fallbackDisguisedCode}
+        </pre>
+      )}
     </div>
   );
 };

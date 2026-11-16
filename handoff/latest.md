@@ -38,3 +38,10 @@ Khắc phục lỗi Vòng tròn Hạn mức luôn báo 100% và không cập nh�
 ## Next
 
 Bấm `Ctrl+R` trên cửa sổ NdevTool (hoặc khởi động lại ứng dụng) để xác nhận vòng tròn cập nhật chính xác theo Claude (4%) hoặc Gemini (0 - 1%) và popup hiển thị đúng thông tin của từng engine.
+
+## Update 2026-11-16 — Thinking display & structured output
+- `electron/main.ts` (Claude engine): collects full `thinking` blocks into `thoughts[]`, streams them in status events, saves on assistant message.
+- `src/types.ts`: added `ThoughtEntry`, `ChatMessage.thoughts`.
+- `src/components/RichMessage.tsx` (new): dependency-free markdown renderer + `StructuredMessage` (collapsible Thinking / Tool sections).
+- `src/App.tsx`: live Thinking panel (visible only while Alt held, masked otherwise); finished assistant messages render structured when revealed.
+- `npx tsc --noEmit` passes (renderer + electron). Not yet run in the real app; changes uncommitted.
