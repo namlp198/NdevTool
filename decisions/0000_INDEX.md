@@ -9,3 +9,4 @@
 | 0005 | Hộp thoại xác nhận trước khi gửi tin nhắn ở khung soạn thảo chính | Accepted | 2026-11-14 |
 | 0006 | Hợp nhất Vòng tròn Usage Hạn Mức (Usage Ring) & Bảng Popup Plan Usage Limits với Real/Mask Stealth Logic | Accepted | 2026-11-14 |
 | 0007 | Khắc phục Vòng tròn Usage Hạn mức & Tách biệt Động giữa Claude Code và Gemini Antigravity | Accepted | 2026-11-14 |
+| 0008 | Thiết kế Cấu hình Phông chữ, Kích thước Chữ & Kiểu Phong cách Hiển thị (Typography & Display Styles) | Accepted | 2026-11-20 |

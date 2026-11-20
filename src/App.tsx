@@ -35,6 +35,7 @@ import {
   Square,
   Terminal,
   Trash2,
+  Type,
   Unlock,
   UserCheck,
   X,
@@ -72,6 +73,15 @@ import {
   localizeStatusDetail,
   TRANSLATIONS,
 } from './utils/i18n';
+import {
+  DEFAULT_TYPOGRAPHY,
+  applyTypographySettings,
+  getFontFamilyCSS,
+  getFontSizePixels,
+  getFontWeightValue,
+  getLineHeightValue,
+  getStyleVariantProperties,
+} from './utils/typography';
 import { FloatingCornerWidget } from './components/FloatingCornerWidget';
 import { PeekInspectorWindow } from './components/PeekInspectorWindow';
 import { StructuredMessage, ThoughtsList } from './components/RichMessage';
@@ -240,6 +250,7 @@ export const App: React.FC = () => {
     alwaysOnTop: true,
     peekWindowOpen: false,
     hotkeys: { ...DEFAULT_HOTKEYS },
+    typography: { ...DEFAULT_TYPOGRAPHY },
     adminAuth: {
       username: 'admin',
       isDefaultPassword: true,
@@ -394,10 +405,17 @@ export const App: React.FC = () => {
   }, [showMainSendConfirmModal]);
 
   useEffect(() => {
+    applyTypographySettings(settings.typography);
+  }, [settings.typography]);
+
+  useEffect(() => {
     if (isPeekRoute) return;
     if (window.ndevApi) {
       window.ndevApi.getInitialState().then((init: any) => {
-        if (init.settings) setSettings({ language: 'vi', ...init.settings });
+        if (init.settings) {
+          setSettings({ language: 'vi', ...init.settings });
+          if (init.settings.typography) applyTypographySettings(init.settings.typography);
+        }
         if (init.repos && init.repos.length > 0) {
           setRepos(init.repos);
           setActiveRepoId(init.repos[0].id);
@@ -807,8 +825,14 @@ export const App: React.FC = () => {
   const handleUpdateSettings = async (patch: Partial<AppSettings>) => {
     const updated = { ...settings, ...patch };
     setSettings(updated);
+    if (patch.typography) {
+      applyTypographySettings(updated.typography);
+    }
     const saved = await window.ndevApi?.saveSettings(updated);
-    if (saved) setSettings(saved);
+    if (saved) {
+      setSettings(saved);
+      if (saved.typography) applyTypographySettings(saved.typography);
+    }
     window.ndevApi?.syncLiveBuffer({
       realText: realInput,
       disguisedText: encodeToDisguisedCode(
@@ -2953,6 +2977,7 @@ const SettingsModal: React.FC<{
   const [draft, setDraft] = useState<AppSettings>(() => {
     const cloned = JSON.parse(JSON.stringify(settings));
     cloned.hotkeys = { ...DEFAULT_HOTKEYS, ...(cloned.hotkeys || {}) };
+    cloned.typography = { ...DEFAULT_TYPOGRAPHY, ...(cloned.typography || {}) };
     return cloned;
   });
   const [recordingHotkeyField, setRecordingHotkeyField] = useState<keyof HotkeyConfig | null>(
@@ -4275,7 +4300,233 @@ const SettingsModal: React.FC<{
             </div>
           </div>
 
-          {/* Section 4: Single Super Admin Credentials Management */}
+          {/* Section 4: Typography, Font Size & Display Styles */}
+          <div className="space-y-3 border border-border rounded p-3.5 bg-[#06090e]">
+            <div className="font-bold text-cyber flex items-center justify-between">
+              <span className="flex items-center gap-1.5">
+                <Type className="w-3.5 h-3.5 text-matrix" />
+                {t.secTypographyTitle}
+              </span>
+              <button
+                type="button"
+                onClick={() =>
+                  setDraft({
+                    ...draft,
+                    typography: { ...DEFAULT_TYPOGRAPHY },
+                  })
+                }
+                className="px-2.5 py-0.5 rounded bg-border hover:bg-slate-700 text-slate-300 text-[10px] font-normal"
+              >
+                {t.hotkeyResetDefaultBtn}
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {/* Font Family */}
+              <div>
+                <label className="block text-[10px] text-slate-300 font-semibold mb-1">
+                  {t.fontFamilyLabel}
+                </label>
+                <select
+                  value={draft.typography?.fontFamily || 'jetbrains-mono'}
+                  onChange={(e) =>
+                    setDraft({
+                      ...draft,
+                      typography: {
+                        ...DEFAULT_TYPOGRAPHY,
+                        ...(draft.typography || {}),
+                        fontFamily: e.target.value as any,
+                      },
+                    })
+                  }
+                  className="w-full bg-[#0b111a] border border-matrix/50 rounded px-2 py-1 text-matrix font-semibold focus:outline-none"
+                >
+                  <option value="jetbrains-mono">JetBrains Mono (Hacker Default)</option>
+                  <option value="fira-code">Fira Code (Ligatures)</option>
+                  <option value="cascadia-code">Cascadia Code (Windows Terminal)</option>
+                  <option value="consolas">Consolas (Classic Clean)</option>
+                  <option value="roboto-mono">Roboto Mono (Modern Monospace)</option>
+                  <option value="source-code-pro">Source Code Pro (Adobe Code)</option>
+                  <option value="courier-new">Courier New (Typewriter Vintage)</option>
+                  <option value="custom">-- Custom System Font... --</option>
+                </select>
+
+                {draft.typography?.fontFamily === 'custom' && (
+                  <input
+                    type="text"
+                    value={draft.typography?.customFontFamily || ''}
+                    onChange={(e) =>
+                      setDraft({
+                        ...draft,
+                        typography: {
+                          ...DEFAULT_TYPOGRAPHY,
+                          ...(draft.typography || {}),
+                          customFontFamily: e.target.value,
+                        },
+                      })
+                    }
+                    placeholder={t.customFontPlaceholder}
+                    className="mt-1.5 w-full bg-[#0b111a] border border-border rounded px-2 py-1 text-slate-200 text-xs focus:outline-none"
+                  />
+                )}
+              </div>
+
+              {/* Font Size */}
+              <div>
+                <label className="block text-[10px] text-slate-300 font-semibold mb-1">
+                  {t.fontSizeLabel}
+                </label>
+                <select
+                  value={draft.typography?.fontSize || 'sm'}
+                  onChange={(e) =>
+                    setDraft({
+                      ...draft,
+                      typography: {
+                        ...DEFAULT_TYPOGRAPHY,
+                        ...(draft.typography || {}),
+                        fontSize: e.target.value as any,
+                      },
+                    })
+                  }
+                  className="w-full bg-[#0b111a] border border-cyber/50 rounded px-2 py-1 text-cyber font-semibold focus:outline-none"
+                >
+                  <option value="xs">{t.sizeXs}</option>
+                  <option value="sm">{t.sizeSm}</option>
+                  <option value="base">{t.sizeBase}</option>
+                  <option value="lg">{t.sizeLg}</option>
+                  <option value="xl">{t.sizeXl}</option>
+                </select>
+              </div>
+
+              {/* Display Style Variant */}
+              <div>
+                <label className="block text-[10px] text-slate-300 font-semibold mb-1">
+                  {t.fontStyleVariantLabel}
+                </label>
+                <select
+                  value={draft.typography?.fontStyleVariant || 'standard'}
+                  onChange={(e) =>
+                    setDraft({
+                      ...draft,
+                      typography: {
+                        ...DEFAULT_TYPOGRAPHY,
+                        ...(draft.typography || {}),
+                        fontStyleVariant: e.target.value as any,
+                      },
+                    })
+                  }
+                  className="w-full bg-[#0b111a] border border-mystic/50 rounded px-2 py-1 text-mystic font-semibold focus:outline-none"
+                >
+                  <option value="standard">{t.styleStandard}</option>
+                  <option value="matrix-glow">{t.styleMatrixGlow}</option>
+                  <option value="cyber-neon">{t.styleCyberNeon}</option>
+                  <option value="hacker-crisp">{t.styleHackerCrisp}</option>
+                  <option value="terminal-amber">{t.styleTerminalAmber}</option>
+                </select>
+              </div>
+
+              {/* Line Height */}
+              <div>
+                <label className="block text-[10px] text-slate-400 mb-1">
+                  {t.lineHeightLabel}
+                </label>
+                <select
+                  value={draft.typography?.lineHeight || 'normal'}
+                  onChange={(e) =>
+                    setDraft({
+                      ...draft,
+                      typography: {
+                        ...DEFAULT_TYPOGRAPHY,
+                        ...(draft.typography || {}),
+                        lineHeight: e.target.value as any,
+                      },
+                    })
+                  }
+                  className="w-full bg-[#0b111a] border border-border rounded px-2 py-1 text-slate-200 focus:outline-none"
+                >
+                  <option value="tight">{t.lineHeightTight}</option>
+                  <option value="normal">{t.lineHeightNormal}</option>
+                  <option value="relaxed">{t.lineHeightRelaxed}</option>
+                </select>
+              </div>
+
+              {/* Font Weight */}
+              <div>
+                <label className="block text-[10px] text-slate-400 mb-1">
+                  {t.fontWeightLabel}
+                </label>
+                <select
+                  value={draft.typography?.fontWeight || 'normal'}
+                  onChange={(e) =>
+                    setDraft({
+                      ...draft,
+                      typography: {
+                        ...DEFAULT_TYPOGRAPHY,
+                        ...(draft.typography || {}),
+                        fontWeight: e.target.value as any,
+                      },
+                    })
+                  }
+                  className="w-full bg-[#0b111a] border border-border rounded px-2 py-1 text-slate-200 focus:outline-none"
+                >
+                  <option value="normal">{t.weightNormal}</option>
+                  <option value="medium">{t.weightMedium}</option>
+                  <option value="semibold">{t.weightSemibold}</option>
+                  <option value="bold">{t.weightBold}</option>
+                </select>
+              </div>
+
+              {/* Quick Info Badge */}
+              <div className="flex flex-col justify-end">
+                <div className="text-[10px] text-slate-400 bg-[#09111c] border border-border/80 rounded p-2">
+                  <span className="text-matrix font-semibold">Active: </span>
+                  <span className="font-mono">
+                    {getFontSizePixels(draft.typography?.fontSize || 'sm')} / {draft.typography?.fontFamily || 'jetbrains-mono'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Live Typography Preview Box */}
+            <div className="mt-2 border border-border/70 rounded p-3 bg-[#04070d]">
+              <div className="flex items-center justify-between text-[10px] text-cyber font-bold border-b border-border/60 pb-1.5 mb-2">
+                <span className="flex items-center gap-1.5">
+                  <Type className="w-3.5 h-3.5 text-matrix" />
+                  {t.typographyPreviewLabel}
+                </span>
+                <span className="text-slate-400 text-[9px] font-mono">
+                  {draft.typography?.fontFamily || 'jetbrains-mono'} · {getFontSizePixels(draft.typography?.fontSize || 'sm')} · {draft.typography?.fontStyleVariant || 'standard'}
+                </span>
+              </div>
+              <div
+                className="p-3 rounded bg-[#070c14] border border-border/80 overflow-hidden"
+                style={{
+                  fontFamily: getFontFamilyCSS(draft.typography?.fontFamily || 'jetbrains-mono', draft.typography?.customFontFamily),
+                  fontSize: getFontSizePixels(draft.typography?.fontSize || 'sm'),
+                  lineHeight: getLineHeightValue(draft.typography?.lineHeight || 'normal'),
+                  fontWeight: getFontWeightValue(draft.typography?.fontWeight || 'normal'),
+                  textShadow: getStyleVariantProperties(draft.typography?.fontStyleVariant || 'standard').textShadow,
+                  letterSpacing: getStyleVariantProperties(draft.typography?.fontStyleVariant || 'standard').letterSpacing,
+                }}
+              >
+                <div className="text-matrix font-mono">
+                  pub unsafe fn kernel_trace_dispatch(frame: *mut DmaContext) -&gt; Result&lt;0x00_OK&gt; &#123;
+                </div>
+                <div className="text-slate-300 font-mono pl-4">
+                  // NdevTool :: Stealth Hacker Coding Environment &amp; Cross-Machine Handoff
+                </div>
+                <div className="text-cyber font-mono pl-4">
+                  mmu::sync_tlb_page(VirtAddr::new(0x7ff8b000));
+                </div>
+                <div className="text-amber font-mono pl-4">
+                  println!("Font size &amp; style preview is active. Ready to deploy.");
+                </div>
+                <div className="text-matrix font-mono">&#125;</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Section 5: Single Super Admin Credentials Management */}
           <div className="space-y-2.5 border border-mystic/40 rounded p-3.5 bg-[#06090e]">
             <div className="font-bold text-amber flex items-center gap-1.5">
               <KeyRound className="w-3.5 h-3.5" /> {t.sec4Title}

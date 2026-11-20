@@ -284,6 +284,31 @@ export const TRANSLATIONS: Record<
     hotkeyHoldPeekRecordingBadge: string;
     hotkeyResetDefaultBtn: string;
     sec4Title: string;
+    secTypographyTitle: string;
+    fontFamilyLabel: string;
+    fontSizeLabel: string;
+    fontWeightLabel: string;
+    lineHeightLabel: string;
+    fontStyleVariantLabel: string;
+    typographyPreviewLabel: string;
+    customFontPlaceholder: string;
+    styleStandard: string;
+    styleMatrixGlow: string;
+    styleCyberNeon: string;
+    styleHackerCrisp: string;
+    styleTerminalAmber: string;
+    sizeXs: string;
+    sizeSm: string;
+    sizeBase: string;
+    sizeLg: string;
+    sizeXl: string;
+    lineHeightTight: string;
+    lineHeightNormal: string;
+    lineHeightRelaxed: string;
+    weightNormal: string;
+    weightMedium: string;
+    weightSemibold: string;
+    weightBold: string;
     adminNewUsernameLabel: string;
     adminCurrentPasswordLabel: string;
     adminNewPasswordLabel: string;
@@ -615,7 +640,32 @@ export const TRANSLATIONS: Record<
     hotkeyRecordingBadge: 'ĐANG GHI PHÍM... (Bấm phím đơn / tổ hợp phím hoặc ESC để hủy)',
     hotkeyHoldPeekRecordingBadge: 'ĐANG GHI... (Bấm Alt, Ctrl, Shift, F1-F12 hoặc phím bất kỳ | ESC hủy)',
     hotkeyResetDefaultBtn: 'Khôi phục phím mặc định',
-    sec4Title: '4. ĐỔI THÔNG TIN TÀI KHOẢN SUPER ADMIN DUY NHẤT',
+    sec4Title: '5. ĐỔI THÔNG TIN TÀI KHOẢN SUPER ADMIN DUY NHẤT',
+    secTypographyTitle: '4. TÙY CHỈNH PHÔNG CHỮ, KÍCH THƯỚC & KIỂU HIỂN THỊ (TYPOGRAPHY & STYLES)',
+    fontFamilyLabel: 'Phông chữ hiển thị (Font Family)',
+    fontSizeLabel: 'Kích thước chữ (Font Size)',
+    fontWeightLabel: 'Độ đậm của chữ (Font Weight)',
+    lineHeightLabel: 'Khoảng cách dòng (Line Height)',
+    fontStyleVariantLabel: 'Phong cách & Hiệu ứng chữ (Display Style)',
+    typographyPreviewLabel: 'Xem trước trực tiếp (Live Preview)',
+    customFontPlaceholder: 'Nhập tên font hệ thống (VD: Monaspace Neon, Hack, Dank Mono, Menlo...)',
+    styleStandard: 'Chuẩn Hacker Sắc Nét (Standard Clean)',
+    styleMatrixGlow: 'Ma Trận Phát Sáng (Matrix Green Glow)',
+    styleCyberNeon: 'Cyber Neon (Cyber Cyan Glow)',
+    styleHackerCrisp: 'Tương Phản Cao Sắc Cạnh (High-Contrast Crisp)',
+    styleTerminalAmber: 'Terminal Hổ Phách Cổ Điển (Vintage Amber CRT)',
+    sizeXs: '11px (Rất nhỏ - Compact)',
+    sizeSm: '12px (Nhỏ - Chuẩn NdevTool)',
+    sizeBase: '13px (Vừa - Dễ đọc)',
+    sizeLg: '14px (Lớn - Thoải mái)',
+    sizeXl: '16px (Rất lớn - Màn hình 4K)',
+    lineHeightTight: 'Chặt chẽ (1.3 Compact)',
+    lineHeightNormal: 'Tiêu chuẩn (1.5 Normal)',
+    lineHeightRelaxed: 'Rộng rãi (1.75 Relaxed)',
+    weightNormal: 'Tiêu chuẩn (400 Regular)',
+    weightMedium: 'Trung bình (500 Medium)',
+    weightSemibold: 'Đậm vừa (600 Semibold)',
+    weightBold: 'Đậm nét (700 Bold)',
     adminNewUsernameLabel: 'Tên tài khoản Super Admin',
     adminCurrentPasswordLabel: 'Mật khẩu hiện tại',
     adminNewPasswordLabel: 'Mật khẩu mới',
@@ -947,7 +997,32 @@ export const TRANSLATIONS: Record<
     hotkeyRecordingBadge: 'RECORDING KEYS... (Press key / combo or ESC to cancel)',
     hotkeyHoldPeekRecordingBadge: 'RECORDING... (Press Alt, Ctrl, Shift, F1-F12 or any key | ESC cancel)',
     hotkeyResetDefaultBtn: 'Reset Default Hotkeys',
-    sec4Title: '4. UPDATE SINGLE SUPER ADMIN CREDENTIALS',
+    sec4Title: '5. UPDATE SINGLE SUPER ADMIN CREDENTIALS',
+    secTypographyTitle: '4. TYPOGRAPHY, FONT SIZE & DISPLAY STYLES',
+    fontFamilyLabel: 'Display Font Family',
+    fontSizeLabel: 'Font Size',
+    fontWeightLabel: 'Font Weight',
+    lineHeightLabel: 'Line Height',
+    fontStyleVariantLabel: 'Display Style & Effects',
+    typographyPreviewLabel: 'Live Typography Preview',
+    customFontPlaceholder: 'Enter installed system font (e.g., Monaspace Neon, Hack, Dank Mono...)',
+    styleStandard: 'Standard Hacker Clean',
+    styleMatrixGlow: 'Matrix Green Glow',
+    styleCyberNeon: 'Cyber Neon (Cyan Glow)',
+    styleHackerCrisp: 'High-Contrast Crisp Edge',
+    styleTerminalAmber: 'Vintage Amber CRT Terminal',
+    sizeXs: '11px (Compact)',
+    sizeSm: '12px (Standard NdevTool)',
+    sizeBase: '13px (Readable)',
+    sizeLg: '14px (Spacious)',
+    sizeXl: '16px (4K / Large Display)',
+    lineHeightTight: 'Tight (1.3 Compact)',
+    lineHeightNormal: 'Standard (1.5 Normal)',
+    lineHeightRelaxed: 'Relaxed (1.75 Spacious)',
+    weightNormal: 'Regular (400)',
+    weightMedium: 'Medium (500)',
+    weightSemibold: 'Semibold (600)',
+    weightBold: 'Bold (700)',
     adminNewUsernameLabel: 'Super Admin Username',
     adminCurrentPasswordLabel: 'Current Password',
     adminNewPasswordLabel: 'New Password',

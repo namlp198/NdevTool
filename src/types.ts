@@ -170,6 +170,38 @@ export interface HotkeyConfig {
   triggerSync: string;
 }
 
+export type FontFamilyOption =
+  | 'jetbrains-mono'
+  | 'fira-code'
+  | 'cascadia-code'
+  | 'consolas'
+  | 'roboto-mono'
+  | 'source-code-pro'
+  | 'courier-new'
+  | 'custom';
+
+export type FontSizeOption = 'xs' | 'sm' | 'base' | 'lg' | 'xl';
+
+export type FontStyleVariant =
+  | 'standard'
+  | 'matrix-glow'
+  | 'cyber-neon'
+  | 'hacker-crisp'
+  | 'terminal-amber';
+
+export type LineHeightOption = 'tight' | 'normal' | 'relaxed';
+
+export type FontWeightOption = 'normal' | 'medium' | 'semibold' | 'bold';
+
+export interface TypographyConfig {
+  fontFamily: FontFamilyOption;
+  customFontFamily?: string;
+  fontSize: FontSizeOption;
+  fontStyleVariant: FontStyleVariant;
+  lineHeight: LineHeightOption;
+  fontWeight: FontWeightOption;
+}
+
 export interface AppSettings {
   language: AppLanguage;
   stealthMode: StealthThemeMode;
@@ -181,6 +213,7 @@ export interface AppSettings {
   sync: SyncConfig;
   engine: EngineConfig;
   hotkeys?: HotkeyConfig;
+  typography?: TypographyConfig;
   adminAuth?: AdminAuthPublicInfo;
 }
 
